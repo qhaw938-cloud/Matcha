@@ -1,4 +1,4 @@
--- Matcha.lua | rare scanner + top notification + menu
+-- Matcha.lua | safe version
 local env = (type(getgenv) == "function" and getgenv()) or _G
 if type(env.parl0vHubCleanup) == "function" then
     pcall(env.parl0vHubCleanup)
@@ -6,6 +6,12 @@ end
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+
+local canInstance = (type(Instance) == "table" or type(Instance) == "userdata") and type(Instance.new) == "function"
+local canColor3 = type(Color3) == "table" and type(Color3.fromRGB) == "function"
+local canUDim2 = type(UDim2) == "table" and type(UDim2.new) == "function"
+local canVector3 = type(Vector3) == "table" and type(Vector3.new) == "function"
+local canGui = canInstance and canColor3 and canUDim2 and canVector3
 
 local rareNames = {
     ["أبو الضبان"] = true,
@@ -72,6 +78,11 @@ local function getPlayerGui()
 end
 
 local function showTopMessage(text, bgColor)
+    if not canGui then
+        log(text)
+        return
+    end
+
     local playerGui = safe(getPlayerGui)
     if not playerGui then
         log(text)
@@ -243,7 +254,7 @@ local function clearEsp(obj)
 end
 
 local function applyEsp(obj, labelText)
-    if not state.esp then
+    if not canGui or not state.esp then
         return
     end
 
@@ -364,7 +375,7 @@ local function toggle()
 
     if state.enabled then
         setStatus("ON | scanning rare / priced objects")
-        showTopMessage("اشتغل", Color3.fromRGB(35, 120, 55))
+        showTopMessage("اشتغل", canColor3 and Color3.fromRGB(35, 120, 55) or nil)
         scan()
     else
         for obj in pairs(state.espItems) do
@@ -372,7 +383,7 @@ local function toggle()
         end
         state.seen = {}
         setStatus("OFF | press L")
-        showTopMessage("وقف", Color3.fromRGB(140, 45, 45))
+        showTopMessage("وقف", canColor3 and Color3.fromRGB(140, 45, 45) or nil)
     end
 end
 
@@ -407,16 +418,6 @@ end
 
 env.parl0vHubCleanup = cleanup
 env.parl0vToggle = toggle
-env.parl0vStart = function()
-    if not state.enabled then
-        toggle()
-    end
-end
-env.parl0vStop = function()
-    if state.enabled then
-        toggle()
-    end
-end
 
 local inputConn = safe(function()
     return UserInputService.InputBegan:Connect(function(input, processed)
@@ -431,6 +432,11 @@ if inputConn then
 end
 
 local function createGui()
+    if not canGui then
+        log("GUI unavailable")
+        return
+    end
+
     local player = Players.LocalPlayer
     if not player then
         return
@@ -446,95 +452,45 @@ local function createGui()
     gui.ResetOnSpawn = false
     gui.Parent = parent
     state.gui = gui
-
-    local panel = Instance.new("Frame")
-    panel.Size = UDim2.new(0, 310, 0, 360)
-    panel.Position = UDim2.new(0, 24, 0.5, -180)
-    panel.BackgroundColor3 = Color3.fromRGB(26, 29, 37)
-    panel.Parent = gui
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = panel
-
-    local padding = Instance.new("UIPadding")
-    padding.PaddingTop = UDim.new(0, 10)
-    padding.PaddingBottom = UDim.new(0, 10)
-    padding.PaddingLeft = UDim.new(0, 8)
-    padding.PaddingRight = UDim.new(0, 8)
-    padding.Parent = panel
-
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 5)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.Parent = panel
-
-    local function label(text, height)
-        local x = Instance.new("TextLabel")
-        x.Size = UDim2.new(1, -16, 0, height or 30)
-        x.BackgroundTransparency = 1
-        x.TextColor3 = Color3.new(1, 1, 1)
-        x.Font = Enum.Font.Gotham
-        x.TextSize = 13
-        x.TextWrapped = true
-        x.Text = text
-        x.Parent = panel
-        return x
-    end
-
-    local function button(text, callback)
-        local b = Instance.new("TextButton")
-        b.Size = UDim2.new(1, -18, 0, 34)
-        b.BackgroundColor3 = Color3.fromRGB(53, 62, 82)
-        b.TextColor3 = Color3.new(1, 1, 1)
-        b.Font = Enum.Font.GothamBold
-        b.TextSize = 13
-        b.Text = text
-        b.Parent = panel
-        b.MouseButton1Click:Connect(callback)
-        return b
-    end
-
-    label("Matcha | Rare Scanner", 35)
-    state.labels.status = label("OFF | Press L to toggle", 35)
-
-    button("START / STOP [L]", toggle)
-
-    button("Rare Names: ON/OFF", function()
-        state.scanNames = not state.scanNames
-        setStatus("Rare names: " .. tostring(state.scanNames))
-    end)
-
-    button("Price > 100000: ON/OFF", function()
-        state.scanPrices = not state.scanPrices
-        setStatus("Price filter: " .. tostring(state.scanPrices))
-    end)
-
-    button("ESP: ON/OFF", function()
-        state.esp = not state.esp
-        if not state.esp then
-            for obj in pairs(state.espItems) do
-                clearEsp(obj)
-            end
-        else
-            scan()
-        end
-        setStatus("ESP: " .. tostring(state.esp))
-    end)
-
-    button("Alerts: ON/OFF", function()
-        state.alerts = not state.alerts
-        setStatus("Alerts: " .. tostring(state.alerts))
-    end)
-
-    label("Scans visible names and explicit prices only.", 35)
-
-    button("CLOSE MENU", function()
-        gui.Enabled = false
-    end)
 end
 
 safe(createGui)
+
+local scanAreas = {
+    "الديرة",
+    "البر",
+    "الكهوف والأماكن المهجورة",
+    "العالم الثاني",
+}
+
+local function isTargetArea(name)
+    for _, areaName in ipairs(scanAreas) do
+        if name == areaName then
+            return true
+        end
+    end
+    return false
+end
+
+local function getScanPool()
+    local results = {}
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if isTargetArea(obj.Name) then
+            table.insert(results, obj)
+
+            for _, child in ipairs(obj:GetDescendants()) do
+                table.insert(results, child)
+            end
+        end
+    end
+
+    if #results > 0 then
+        return results
+    end
+
+    return workspace:GetDescendants()
+end
 
 task.spawn(function()
     while state.alive do
@@ -545,5 +501,5 @@ task.spawn(function()
     end
 end)
 
-showTopMessage("اشتغل", Color3.fromRGB(35, 120, 55))
+showTopMessage("اشتغل", canColor3 and Color3.fromRGB(35, 120, 55) or nil)
 log("Loaded | L toggles ON/OFF | starts OFF")
