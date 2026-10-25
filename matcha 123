@@ -1,0 +1,63 @@
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local targetFolder = workspace:WaitForChild("Dabban")
+local maxDistance = 200
+
+local lastTargetName = nil
+
+local function getCharacterRoot()
+    local character = player.Character or player.CharacterAdded:Wait()
+    return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function getTargetPart(instance)
+    if instance:IsA("Model") then
+        return instance:FindFirstChild("HumanoidRootPart") or instance.PrimaryPart
+    end
+
+    if instance:IsA("BasePart") then
+        return instance
+    end
+
+    return nil
+end
+
+local function getClosestDabbah()
+    local root = getCharacterRoot()
+    if not root then
+        return nil, nil
+    end
+
+    local closest = nil
+    local closestDistance = maxDistance
+
+    for _, item in ipairs(targetFolder:GetChildren()) do
+        local part = getTargetPart(item)
+        if part then
+            local distance = (part.Position - root.Position).Magnitude
+            if distance < closestDistance then
+                closestDistance = distance
+                closest = item
+            end
+        end
+    end
+
+    return closest, closestDistance
+end
+
+while task.wait(1) do
+    local target, distance = getClosestDabbah()
+
+    if target then
+        if lastTargetName ~= target.Name then
+            print("اقرب ضب:", target.Name, "| المسافة:", math.floor(distance))
+            lastTargetName = target.Name
+        end
+    else
+        if lastTargetName ~= false then
+            print("لا يوجد ضب قريب")
+            lastTargetName = false
+        end
+    end
+end
