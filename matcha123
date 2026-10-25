@@ -1,6 +1,8 @@
 local Players = game:GetService("Players")
 
+repeat task.wait() until Players.LocalPlayer
 local player = Players.LocalPlayer
+
 local targetFolder = workspace:WaitForChild("Dabban")
 local maxDistance = 200
 
@@ -8,7 +10,7 @@ local lastTargetName = nil
 
 local function getCharacterRoot()
     local character = player.Character or player.CharacterAdded:Wait()
-    return character:FindFirstChild("HumanoidRootPart")
+    return character:WaitForChild("HumanoidRootPart")
 end
 
 local function getTargetPart(instance)
