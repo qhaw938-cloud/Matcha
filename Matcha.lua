@@ -1,4 +1,4 @@
--- parl0v Hub | rare names + visible price scanner + ESP + control menu
+-- Matcha.lua | rare scanner + top notification + menu
 local env = (type(getgenv) == "function" and getgenv()) or _G
 if type(env.parl0vHubCleanup) == "function" then
     pcall(env.parl0vHubCleanup)
@@ -49,10 +49,11 @@ local state = {
     gui = nil,
     labels = {},
     espItems = {},
+    noticeGui = nil,
 }
 
 local function log(msg)
-    print("[parl0v Hub] " .. tostring(msg))
+    print("[Matcha] " .. tostring(msg))
 end
 
 local function safe(fn)
@@ -60,6 +61,71 @@ local function safe(fn)
     if ok then
         return result
     end
+end
+
+local function getPlayerGui()
+    local player = Players.LocalPlayer
+    if not player then
+        return nil
+    end
+    return player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui", 5)
+end
+
+local function showTopMessage(text, bgColor)
+    local playerGui = safe(getPlayerGui)
+    if not playerGui then
+        log(text)
+        return
+    end
+
+    if state.noticeGui then
+        safe(function()
+            state.noticeGui:Destroy()
+        end)
+        state.noticeGui = nil
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "MatchaTopNotice"
+    gui.ResetOnSpawn = false
+    gui.Parent = playerGui
+    state.noticeGui = gui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 240, 0, 42)
+    frame.Position = UDim2.new(0.5, -120, 0, 18)
+    frame.BackgroundColor3 = bgColor or Color3.fromRGB(35, 120, 55)
+    frame.BorderSizePixel = 0
+    frame.Parent = gui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 255, 255)
+    stroke.Transparency = 0.35
+    stroke.Thickness = 1
+    stroke.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Parent = frame
+
+    task.spawn(function()
+        task.wait(2.5)
+        if gui and gui.Parent then
+            gui:Destroy()
+        end
+        if state.noticeGui == gui then
+            state.noticeGui = nil
+        end
+    end)
 end
 
 local function matchName(text)
@@ -191,7 +257,7 @@ local function applyEsp(obj, labelText)
     end
 
     local highlight = Instance.new("Highlight")
-    highlight.Name = "parl0vRareHighlight"
+    highlight.Name = "MatchaRareHighlight"
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.FillColor = Color3.fromRGB(255, 215, 0)
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
@@ -200,7 +266,7 @@ local function applyEsp(obj, labelText)
     highlight.Parent = obj
 
     local billboard = Instance.new("BillboardGui")
-    billboard.Name = "parl0vRareBillboard"
+    billboard.Name = "MatchaRareBillboard"
     billboard.Size = UDim2.new(0, 180, 0, 40)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
@@ -298,6 +364,7 @@ local function toggle()
 
     if state.enabled then
         setStatus("ON | scanning rare / priced objects")
+        showTopMessage("اشتغل", Color3.fromRGB(35, 120, 55))
         scan()
     else
         for obj in pairs(state.espItems) do
@@ -305,6 +372,7 @@ local function toggle()
         end
         state.seen = {}
         setStatus("OFF | press L")
+        showTopMessage("وقف", Color3.fromRGB(140, 45, 45))
     end
 end
 
@@ -325,6 +393,12 @@ local function cleanup()
     if state.gui then
         safe(function()
             state.gui:Destroy()
+        end)
+    end
+
+    if state.noticeGui then
+        safe(function()
+            state.noticeGui:Destroy()
         end)
     end
 
@@ -368,7 +442,7 @@ local function createGui()
     end
 
     local gui = Instance.new("ScreenGui")
-    gui.Name = "parl0vHubMenu"
+    gui.Name = "MatchaMenu"
     gui.ResetOnSpawn = false
     gui.Parent = parent
     state.gui = gui
@@ -421,7 +495,7 @@ local function createGui()
         return b
     end
 
-    label("parl0v Hub | Rare Scanner", 35)
+    label("Matcha | Rare Scanner", 35)
     state.labels.status = label("OFF | Press L to toggle", 35)
 
     button("START / STOP [L]", toggle)
@@ -471,4 +545,5 @@ task.spawn(function()
     end
 end)
 
+showTopMessage("اشتغل", Color3.fromRGB(35, 120, 55))
 log("Loaded | L toggles ON/OFF | starts OFF")
